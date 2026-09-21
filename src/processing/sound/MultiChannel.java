@@ -147,4 +147,52 @@ public abstract class MultiChannel {
 		return engine.isUsingPortAudio();
 	}
 
+	/**
+	 * Force using the native ASIO driver interface instead of JavaSound or PortAudio.
+	 *
+	 * While the PortAudio bindings that the Sound library falls back to do expose
+	 * ASIO drivers on Windows, in practice they fail to open many ASIO devices.
+	 * This method switches the library to the JAsioHost bindings which talk to the
+	 * ASIO drivers directly, giving you the lowest possible output latency and
+	 * reliable access to all channels of your audio interface. This is a Windows-
+	 * only feature: on other operating systems (or if no ASIO driver is installed)
+	 * the call prints an error and returns <code>false</code>.
+	 *
+	 * Call it at the very top of your <code>setup()</code>, before any other Sound
+	 * library object is created or any other device is selected, for example:
+	 * <pre>
+	 * MultiChannel.useJASIO();
+	 * Sound.outputDevice("ASIO4ALL v2");
+	 * </pre>
+	 * After the switch, <code>Sound.list()</code> will only show the ASIO drivers
+	 * registered in the system. Note that the ASIO API only allows one driver to be
+	 * in use at a time.
+	 *
+	 * Returns <code>true</code> if ASIO support was successfully loaded.
+	 *
+	 * @webref I/O:MultiChannel
+	 * @webBrief Force using native ASIO drivers instead of JavaSound or PortAudio.
+	 * @see MultiChannel#usePortAudio()
+	 * @see Sound#list()
+	 */
+	public static boolean useJASIO() {
+		Engine engine;
+		try {
+			engine = Engine.getEngine(null, Engine.DRIVER_JASIO);
+		} catch (RuntimeException e) {
+			Engine.printError(e.getMessage());
+			return false;
+		}
+		try {
+			if (engine.useJAsio()) {
+				// all good, go for default device
+				engine.selectOutputDevice(-1);
+			}
+			return engine.isUsingJAsio();
+		} catch (RuntimeException e) {
+			Engine.printError(e.getMessage());
+		}
+		return engine.isUsingJAsio();
+	}
+
 }
