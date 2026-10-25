@@ -91,7 +91,12 @@ public class AsioChannel {
 
   protected void setBufferIndex(int bufferIndex) {
     this.bufferIndex = bufferIndex;
-    nativeBuffers[bufferIndex].rewind(); // reset position to start of buffer
+    // guard against drivers which fire a straggling bufferSwitch callback while
+    // or after their buffers have been disposed of (the buffers are cleared to
+    // null by setByteBuffers() in that case)
+    if (nativeBuffers[bufferIndex] != null) {
+      nativeBuffers[bufferIndex].rewind(); // reset position to start of buffer
+    }
   }
   
   protected void setByteBuffers(ByteBuffer buffer0, ByteBuffer buffer1) {

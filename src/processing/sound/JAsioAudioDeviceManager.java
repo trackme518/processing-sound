@@ -330,6 +330,13 @@ class JAsioAudioDeviceManager implements AudioDeviceManager {
 			this.driver.createBuffers(channelsToInit);
 			this.bufferSize = this.driver.getBufferPreferredSize();
 
+			// some drivers (e.g. Realtek's) claim everything is fine but then don't
+			// actually allocate any buffers for the channels they report; check for
+			// that before starting the driver, otherwise the callbacks will just
+			// spam the console with NullPointerExceptions
+			this.checkChannelBuffers(this.outputChannels);
+			this.checkChannelBuffers(this.inputChannels);
+
 			if (this.output != null) {
 				this.output.allocateBuffers();
 			}
@@ -372,6 +379,17 @@ class JAsioAudioDeviceManager implements AudioDeviceManager {
 			}
 		}
 
+		private void checkChannelBuffers(AsioChannel[] channels) {
+			for (int i = 0; channels != null && i < channels.length; i++) {
+				if (!channels[i].isActive() || channels[i].getByteBuffer() == null) {
+					throw new RuntimeException("the ASIO driver '" + this.driverName + "' did not provide an "
+							+ "audio buffer for " + channels[i] + ", it is probably not fully compatible "
+							+ "with it - please try a different driver (e.g. the one from your audio "
+							+ "interface's manufacturer or the universal ASIO4ALL one)");
+				}
+			}
+		}
+
 		double getLatency() {
 			int ringFrames = this.output != null ? this.output.ring.frames : (this.input != null
 					? this.input.ring.frames : 0);
@@ -390,11 +408,15 @@ class JAsioAudioDeviceManager implements AudioDeviceManager {
 			if (!this.running) {
 				return;
 			}
-			if (this.output != null) {
-				this.output.fillAsioBuffers();
-			}
-			if (this.input != null) {
-				this.input.drainAsioBuffers();
+			try {
+				if (this.output != null) {
+					this.output.fillAsioBuffers();
+				}
+				if (this.input != null) {
+					this.input.drainAsioBuffers();
+				}
+			} catch (RuntimeException e) {
+				// the buffers were disposed of under us while the driver was stopping
 			}
 		}
 
