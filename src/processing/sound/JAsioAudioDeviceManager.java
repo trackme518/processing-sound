@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.jsyn.devices.AudioDeviceInputStream;
 import com.jsyn.devices.AudioDeviceManager;
@@ -236,6 +238,9 @@ class JAsioAudioDeviceManager implements AudioDeviceManager {
 		private final int frameRate;
 
 		private final Object lock = new Object();
+		// guards the native ASIO buffers against a callback that is still in
+		// flight when the driver is stopped and unloaded
+		private final ReentrantReadWriteLock callbackLock = new ReentrantReadWriteLock();
 		// guarded by lock: set to false when the streams should wind down
 		private volatile boolean running = false;
 		private boolean started = false;
@@ -359,6 +364,9 @@ class JAsioAudioDeviceManager implements AudioDeviceManager {
 			}
 			// let any thread that's currently blocking in write()/read() wake up and
 			// wind down before we touch the driver
+			Lock writeLock = this.callbackLock.writeLock();
+			writeLock.lock();
+			writeLock.unlock();
 			synchronized (this) {
 				if (this.driver != null) {
 					try {
@@ -403,20 +411,26 @@ class JAsioAudioDeviceManager implements AudioDeviceManager {
 
 		@Override
 		public void bufferSwitch(long systemTime, long samplePosition, Set<AsioChannel> activeChannels) {
-			// guard against a straggling callback after shutdown() started tearing
-			// down the buffers
-			if (!this.running) {
-				return;
-			}
+			// hold the read lock for the whole callback so shutdown() can wait for
+			// a straggling callback before it disposes of the native buffers
+			Lock readLock = this.callbackLock.readLock();
+			readLock.lock();
 			try {
-				if (this.output != null) {
-					this.output.fillAsioBuffers();
+				if (!this.running) {
+					return;
 				}
-				if (this.input != null) {
-					this.input.drainAsioBuffers();
+				try {
+					if (this.output != null) {
+						this.output.fillAsioBuffers();
+					}
+					if (this.input != null) {
+						this.input.drainAsioBuffers();
+					}
+				} catch (RuntimeException e) {
+					// the buffers were disposed of under us while the driver was stopping
 				}
-			} catch (RuntimeException e) {
-				// the buffers were disposed of under us while the driver was stopping
+			} finally {
+				readLock.unlock();
 			}
 		}
 
@@ -454,6 +468,9 @@ class JAsioAudioDeviceManager implements AudioDeviceManager {
 				@Override
 				public void run() {
 					try {
+						if (!Session.this.running || Session.this.driver == null) {
+							return;
+						}
 						// the driver callbacks stop as soon as it leaves the RUNNING state
 						Session.this.driver.returnToState(AsioDriverState.INITIALIZED);
 						Session.this.doStart();

@@ -444,6 +444,12 @@ class Engine {
 			return this.outputDevice;
 		}
 
+		// Stop the current synthesizer before probing the new device. In
+		// particular, ASIO only allows one loaded driver at a time, so probing
+		// another driver while the current one is loaded would incorrectly
+		// report zero channels.
+		this.stopSynth();
+
 		// if the synth is still JavaSound-based, probe the new output device early 
 		// to provoke a LineUnavailableException, in which case we should try to 
 		// switch to PortAudio.
