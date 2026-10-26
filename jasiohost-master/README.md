@@ -73,6 +73,10 @@ In the ASIO library,
 * `./common/dllentry.cpp` is not necessary. Rename or remove it.
 * Line 219 of `./common/combase.h`, `#if WINVER < 0x0501`, should be replaced with `#if 0`. See [here](http://osdir.com/ml/audio.portaudio.devel/2006-09/msg00058.html) for more information.
 
+The Windows DLL currently shipped with Processing Sound is built with MSVC,
+not Cygwin, and uses a patched driver enumerator. See
+[PATCHES.md](PATCHES.md) for the exact changes and build command.
+
 
 ## A Note about API Translation
 The `JAsioHost` API does not strictly reflect the original C++ API written by Steinberg. There are two reasons for this. The first is that some elements of the original API do not translate well due to language semantics. The second is that I felt that some things could be improved or simplified.

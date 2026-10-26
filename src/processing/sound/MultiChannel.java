@@ -164,9 +164,10 @@ public abstract class MultiChannel {
 	 * MultiChannel.useJASIO();
 	 * Sound.outputDevice("ASIO4ALL v2");
 	 * </pre>
-	 * After the switch, <code>Sound.list()</code> will only show the ASIO drivers
-	 * registered in the system. Note that the ASIO API only allows one driver to be
-	 * in use at a time.
+	 * After the switch, <code>Sound.list()</code> lists all ASIO drivers
+	 * registered in the system. Select the one you want to use with
+	 * <code>Sound.outputDevice()</code>. Note that the ASIO API only allows one
+	 * driver to be in use at a time.
 	 *
 	 * Returns <code>true</code> if ASIO support was successfully loaded.
 	 *
@@ -178,16 +179,16 @@ public abstract class MultiChannel {
 	public static boolean useJASIO() {
 		Engine engine;
 		try {
-			engine = Engine.getEngine(null, Engine.DRIVER_JASIO);
+			// do not select an output device yet: ASIO only allows one driver to
+			// be loaded at a time, and Sound.list() needs to probe each driver
+			// to report its channel counts
+			engine = Engine.getEngine(null, Engine.DRIVER_JASIO, false);
 		} catch (RuntimeException e) {
 			Engine.printError(e.getMessage());
 			return false;
 		}
 		try {
-			if (engine.useJAsio()) {
-				// all good, go for default device
-				engine.selectOutputDevice(-1);
-			}
+			engine.useJAsio();
 			return engine.isUsingJAsio();
 		} catch (RuntimeException e) {
 			Engine.printError(e.getMessage());

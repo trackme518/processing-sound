@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 #include "asiosys.h"
 #include "asio.h"
 #include "asiodrivers.h"
@@ -510,7 +511,7 @@ JNIEXPORT void JNICALL Java_com_synthbot_jasiohost_AsioDriver_ASIOCreateBuffers
 
   bufferVars.numInitedChannels = (int) env->GetArrayLength(channelsToInit);
   bufferVars.bufferInfos = (ASIOBufferInfo *) malloc(sizeof(ASIOBufferInfo) * bufferVars.numInitedChannels);
-  ASIOSampleType sampleTypes[bufferVars.numInitedChannels];
+  std::vector<ASIOSampleType> sampleTypes(bufferVars.numInitedChannels);
   for (int i = 0; i < bufferVars.numInitedChannels; i++) {
     jobject channelInfo = env->GetObjectArrayElement(channelsToInit, (jsize) i);
     jboolean jIsInput = env->CallBooleanMethod(channelInfo,

@@ -162,9 +162,13 @@ class Engine {
 	}
 
 	static Engine getEngine(PApplet parent, int driver) {
+		return Engine.getEngine(parent, driver, true);
+	}
+
+	static Engine getEngine(PApplet parent, int driver, boolean selectDevice) {
 		if (Engine.singleton == null) {
 			// this might throw a RuntimeException, which is fine
-		 	Engine.singleton = new Engine(Engine.createAudioDeviceManager(driver));
+		 	Engine.singleton = new Engine(Engine.createAudioDeviceManager(driver), -1, selectDevice);
 		}
 		if (parent != null) {
 			Engine.singleton.registerWithParent(parent);
@@ -201,20 +205,26 @@ class Engine {
 	 * Create a new synthesizer and connect it to the default output device.
 	 */
 	private Engine(AudioDeviceManager audioDeviceManager) {
-		this(audioDeviceManager, -1);
+		this(audioDeviceManager, -1, true);
 	}
 
 	private Engine(AudioDeviceManager audioDeviceManager, int outputDevice) {
+		this(audioDeviceManager, outputDevice, true);
+	}
+
+	private Engine(AudioDeviceManager audioDeviceManager, int outputDevice, boolean selectDevice) {
 		// suppress JSyn's INFO log messages to stop them from showing
 		// up as redtext in the Processing console
 		Logger logger = Logger.getLogger(com.jsyn.engine.SynthesisEngine.class.getName());
 		logger.setLevel(Level.WARNING);
 
 		this.createSynth(audioDeviceManager);
-		// this method starts the synthesizer -- if the output fails, it might 
-		// create a new PortAudio synth on the fly and try to start that
-		this.selectOutputDevice(outputDevice);
-		this.selectInputDevice(-1);
+		if (selectDevice) {
+			// this method starts the synthesizer -- if the output fails, it might 
+			// create a new PortAudio synth on the fly and try to start that
+			this.selectOutputDevice(outputDevice);
+			this.selectInputDevice(-1);
+		}
 	}
 	
 	private void createSynth(AudioDeviceManager deviceManager) {
@@ -272,6 +282,7 @@ class Engine {
 		if (!this.isUsingJAsio()) {
 			this.createSynth(Engine.createAudioDeviceManager(Engine.DRIVER_JASIO));
 			this.inputDevice = -1;
+			this.outputDevice = -1;
 		}
 		return this.isUsingJAsio();
 	}
